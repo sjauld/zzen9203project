@@ -1,5 +1,4 @@
-// package publickey generates public keys of a given strength
-package publickey
+package main
 
 import (
 	"crypto/rand"
@@ -16,23 +15,25 @@ func bruteForceInverseModM(a, m int) int {
 	}
 }
 
-func extendedEuclideanInverseModM(a, m int) int {
-	oldR, r := a, m
-	oldS, s := 1, 0
-	oldT, t := 0, 1
+func extendedEuclideanInverseModM(a, m *big.Int) *big.Int {
+	oldR := big.NewInt(0).Set(a)
+	r := big.NewInt(0).Set(m)
+	oldS, s := big.NewInt(1), big.NewInt(0)
+	oldT, t := big.NewInt(0), big.NewInt(1)
 
 	for {
-		quotient := oldR / r
-		oldR, r = r, oldR%r
-		oldS, s = s, oldS-quotient*s
-		oldT, t = t, oldT-quotient*t
-		if r == 0 {
+		quotient := big.NewInt(0).Div(oldR, r)
+
+		oldR, r = r, big.NewInt(0).Mod(oldR, r)
+		oldS, s = s, big.NewInt(0).Sub(oldS, big.NewInt(0).Mul(quotient, s))
+		oldT, t = t, big.NewInt(0).Sub(oldT, big.NewInt(0).Mul(quotient, t))
+		if r.Cmp(big.NewInt(0)) == 0 {
 			break
 		}
 	}
 
-	if oldS < 0 {
-		return oldS + m
+	if oldS.Cmp(big.NewInt(0)) == -1 {
+		return big.NewInt(0).Add(oldS, m)
 	}
 	return oldS
 }
@@ -67,26 +68,9 @@ func findCoprime(i int) int {
 	}
 }
 
-func generateKeys(p, q int) (n, m, d, e int) {
-	// modulus
-	n = p * q
-	log.Printf("[DEBUG] modulus %d", n)
+func findPrivateKey(p, q, e *big.Int) *big.Int {
 	// euler totient
-	m = (p - 1) * (q - 1)
-	log.Printf("[DEBUG] Euler totient %d", m)
-	// first key
-	a := findCoprime(m)
-	// second key
-	b := extendedEuclideanInverseModM(a, m)
-	// the smallest key should be the encryption key
-	if a > b {
-		d = a
-		e = b
-	} else {
-		d = b
-		e = a
-	}
-	log.Printf("[DEBUG] decryption key %d", d)
-	log.Printf("[DEBUG] encryption key %d", e)
-	return
+	m := big.NewInt(0).Mul(p.Sub(p, big.NewInt(1)), q.Sub(q, big.NewInt(1)))
+
+	return extendedEuclideanInverseModM(e, m)
 }
